@@ -37,6 +37,10 @@ For example, if you cloned repositories in ~/stylegan2 and downloaded stylegan2-
 
 This will create converted stylegan2-ffhq-config-f.pt file.
 
+You might need to change the original StyleGAN2 repo by at least one of the changes to dnnlib/tflib/custom_ops.py:
+* Replace current string with "nvcc --std=c++11 -DNDEBUG" in line 64
+* "-D_GLIBCXX_USE_CXX11_ABI=1" in line 127
+
 ### Generate samples
 
 > python generate.py --sample N_FACES --pics N_PICS --ckpt PATH_CHECKPOINT
