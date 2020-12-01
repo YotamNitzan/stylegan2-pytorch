@@ -5,6 +5,8 @@ from torchvision import utils
 from model import Generator
 from tqdm import tqdm
 
+import numpy as np
+
 
 def generate(args, g_ema, device, mean_latent):
 
@@ -20,7 +22,7 @@ def generate(args, g_ema, device, mean_latent):
             utils.save_image(
                 sample,
                 f"sample/{str(i).zfill(6)}.png",
-                nrow=1,
+                nrow=int(np.sqrt(args.sample)),
                 normalize=True,
                 range=(-1, 1),
             )
