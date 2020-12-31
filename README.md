@@ -2,6 +2,13 @@
 
 Implementation of Analyzing and Improving the Image Quality of StyleGAN (https://arxiv.org/abs/1912.04958) in PyTorch
 
+## My comments:
+
+For weight conversion, you might need to change the original StyleGAN2 / StyleGAN2-Ada repos by at least one of the changes to dnnlib/tflib/custom_ops.py:
+
+- Replace current string with "nvcc --std=c++11 -DNDEBUG " in line 64 (for SG2) and line 72 for SG2-ADA.
+- "-D_GLIBCXX_USE_CXX11_ABI=1" in line 127 for SG2, for SG2-ADA it was not required.
+
 ## Notice
 
 I have tried to match official implementation as close as possible, but maybe there are some details I missed. So please use this implementation with care.
@@ -36,10 +43,6 @@ For example, if you cloned repositories in ~/stylegan2 and downloaded stylegan2-
 > python convert_weight.py --repo ~/stylegan2 stylegan2-ffhq-config-f.pkl
 
 This will create converted stylegan2-ffhq-config-f.pt file.
-
-You might need to change the original StyleGAN2 repo by at least one of the changes to dnnlib/tflib/custom_ops.py:
-* Replace current string with "nvcc --std=c++11 -DNDEBUG" in line 64
-* "-D_GLIBCXX_USE_CXX11_ABI=1" in line 127
 
 ### Generate samples
 
@@ -86,7 +89,6 @@ Sample from FFHQ. At 110,000 iterations. (trained on 3.52M images)
 ![MetFaces sample with non-leaking augmentations](doc/sample-metfaces.png)
 
 Sample from MetFaces with Non-leaking augmentations. At 150,000 iterations. (trained on 4.8M images)
-
 
 ### Samples from converted weights
 
