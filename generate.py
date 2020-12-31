@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 import torch
 from torchvision import utils
@@ -7,9 +8,9 @@ from tqdm import tqdm
 
 import numpy as np
 
-
 def generate(args, g_ema, device, mean_latent):
 
+    args.out_dir.mkdir(exist_ok=True)
     with torch.no_grad():
         g_ema.eval()
         for i in tqdm(range(args.pics)):
@@ -21,7 +22,7 @@ def generate(args, g_ema, device, mean_latent):
 
             utils.save_image(
                 sample,
-                f"sample/{str(i).zfill(6)}.png",
+                args.out_dir.joinpath(f"{str(i).zfill(6)}.png"),
                 nrow=int(np.sqrt(args.sample)),
                 normalize=True,
                 range=(-1, 1),
@@ -63,6 +64,13 @@ if __name__ == "__main__":
         type=int,
         default=2,
         help="channel multiplier of the generator. config-f = 2, else = 1",
+    )
+
+    parser.add_argument(
+        "--out_dir",
+        type=Path,
+        default="outputs",
+        help="path to generated outputs",
     )
 
     args = parser.parse_args()
