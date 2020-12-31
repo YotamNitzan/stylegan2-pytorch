@@ -22,7 +22,7 @@ def generate(args, g_ema, device, mean_latent):
 
             utils.save_image(
                 sample,
-                args.out_dir.joinpath(f"{str(i).zfill(6)}.png"),
+                str(args.out_dir.joinpath(f"{str(i).zfill(6)}.png")),
                 nrow=int(np.sqrt(args.sample)),
                 normalize=True,
                 range=(-1, 1),

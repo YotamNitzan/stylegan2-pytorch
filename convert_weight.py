@@ -137,10 +137,10 @@ def discriminator_fill_statedict(statedict, vars, size):
     return statedict
 
 
-def fill_statedict(state_dict, vars, size):
+def fill_statedict(state_dict, vars, size, map_layers=8):
     log_size = int(math.log(size, 2))
 
-    for i in range(8):
+    for i in range(map_layers):
         update(state_dict, convert_dense(vars, f"G_mapping/Dense{i}", f"style.{i + 1}"))
 
     update(
@@ -223,6 +223,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("path", metavar="PATH", help="path to the tensorflow weights")
 
+    parser.add_argument("--map_layers", type=int, help="num of mapping layers", default=8)
+
     args = parser.parse_args()
 
     sys.path.append(args.repo)
@@ -237,9 +239,9 @@ if __name__ == "__main__":
 
     size = g_ema.output_shape[2]
 
-    g = Generator(size, 512, 8, channel_multiplier=args.channel_multiplier)
+    g = Generator(size, 512, args.map_layers, channel_multiplier=args.channel_multiplier)
     state_dict = g.state_dict()
-    state_dict = fill_statedict(state_dict, g_ema.vars, size)
+    state_dict = fill_statedict(state_dict, g_ema.vars, size, args.map_layers)
 
     g.load_state_dict(state_dict)
 
@@ -248,9 +250,9 @@ if __name__ == "__main__":
     ckpt = {"g_ema": state_dict, "latent_avg": latent_avg}
 
     if args.gen:
-        g_train = Generator(size, 512, 8, channel_multiplier=args.channel_multiplier)
+        g_train = Generator(size, 512, args.map_layers, channel_multiplier=args.channel_multiplier)
         g_train_state = g_train.state_dict()
-        g_train_state = fill_statedict(g_train_state, generator.vars, size)
+        g_train_state = fill_statedict(g_train_state, generator.vars, size, args.map_layers)
         ckpt["g"] = g_train_state
 
     if args.disc:
