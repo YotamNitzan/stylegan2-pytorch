@@ -92,11 +92,13 @@ if __name__ == "__main__":
         "ckpt", metavar="CHECKPOINT", help="path to generator checkpoint"
     )
 
+    parser.add_argument("--map_layers", type=int, help="num of mapping layers", default=8)
+
     args = parser.parse_args()
 
     ckpt = torch.load(args.ckpt)
 
-    g = Generator(args.size, 512, 8).to(device)
+    g = Generator(args.size, 512, args.map_layers).to(device)
     g.load_state_dict(ckpt["g_ema"])
     g = nn.DataParallel(g)
     g.eval()
