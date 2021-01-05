@@ -16,9 +16,18 @@ def generate(args, g_ema, device, mean_latent):
         for i in tqdm(range(args.pics)):
             sample_z = torch.randn(args.sample, args.latent, device=device)
 
-            sample, _ = g_ema(
-                [sample_z], truncation=args.truncation, truncation_latent=mean_latent
+            sample, latents = g_ema(
+                [sample_z],  return_latents=args.save_latents, truncation=args.truncation, truncation_latent=mean_latent
             )
+
+            if latents is not None:
+                for ind, latent in enumerate(latents):
+                    global_ind = i * args.sample + ind
+                    np.save(
+                        str(args.out_dir.joinpath(f"{str(global_ind).zfill(6)}.npy")),
+                        latent.cpu().numpy()
+                        )
+
 
             utils.save_image(
                 sample,
@@ -73,10 +82,18 @@ if __name__ == "__main__":
         help="path to generated outputs",
     )
 
+    parser.add_argument(
+        "--save_latents",
+        action='store_true',
+        help='Whether to save W vectors'
+    )
+
+    parser.add_argument("--map_layers", type=int, help="num of mapping layers", default=8)
+
     args = parser.parse_args()
 
     args.latent = 512
-    args.n_mlp = 8
+    args.n_mlp = args.map_layers
 
     g_ema = Generator(
         args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier
