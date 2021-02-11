@@ -6,36 +6,76 @@ from torchvision import utils
 from model import Generator
 from tqdm import tqdm
 
+import os
 import numpy as np
+import random
 
 def generate(args, g_ema, device, mean_latent):
 
     args.out_dir.mkdir(exist_ok=True)
     with torch.no_grad():
         g_ema.eval()
-        for i in tqdm(range(args.pics)):
-            sample_z = torch.randn(args.sample, args.latent, device=device)
 
-            sample, latents = g_ema(
-                [sample_z],  return_latents=args.save_latents, truncation=args.truncation, truncation_latent=mean_latent
-            )
+        if args.input_is_latent:
 
-            if latents is not None:
-                for ind, latent in enumerate(latents):
-                    global_ind = i * args.sample + ind
-                    np.save(
-                        str(args.out_dir.joinpath(f"{str(global_ind).zfill(6)}.npy")),
-                        latent.cpu().numpy()
-                        )
+            boundary = np.load(args.boundary_path)
+            latent_space_steps = np.linspace(-args.max_latent_step, args.max_latent_step, args.latent_steps_number)\
+                .round(decimals=2)
+            latent_codes = random.sample([x for x in os.listdir(args.latents_input_path) if x.endswith('npy')],
+                                         args.pics)
+
+            for i in tqdm(range(len(latent_codes))):
+                sample_w = np.expand_dims(np.load(Path(args.latents_input_path) / latent_codes[i])[0], 0)
+
+                for step in latent_space_steps:
+                    sample_w_edit = torch.Tensor(sample_w + step * boundary).to(device)
+                    sample, latents = g_ema(
+                        [sample_w_edit], return_latents=args.save_latents, truncation=args.truncation,
+                        truncation_latent=mean_latent,
+                        input_is_latent=True
+                    )
+
+                    if latents is not None:
+                        for ind, latent in enumerate(latents):
+                            global_ind = i * args.sample + ind
+                            np.save(
+                                str(args.out_dir.joinpath(f"{str(global_ind).zfill(6)}_{step}.npy")),
+                                latent.cpu().numpy()
+                            )
+
+                    utils.save_image(
+                        sample,
+                        str(args.out_dir.joinpath(f"{str(i).zfill(6)}_{step}.png")),
+                        nrow=int(np.sqrt(args.sample)),
+                        normalize=True,
+                        range=(-1, 1),
+                    )
 
 
-            utils.save_image(
-                sample,
-                str(args.out_dir.joinpath(f"{str(i).zfill(6)}.png")),
-                nrow=int(np.sqrt(args.sample)),
-                normalize=True,
-                range=(-1, 1),
-            )
+        else:
+            for i in tqdm(range(args.pics)):
+                sample_z = torch.randn(args.sample, args.latent, device=device)
+                sample, latents = g_ema(
+                    [sample_z],  return_latents=args.save_latents, truncation=args.truncation, truncation_latent=mean_latent,
+                    input_is_latent=False
+                )
+
+                if latents is not None:
+                    for ind, latent in enumerate(latents):
+                        global_ind = i * args.sample + ind
+                        np.save(
+                            str(args.out_dir.joinpath(f"{str(global_ind).zfill(6)}.npy")),
+                            latent.cpu().numpy()
+                            )
+
+
+                utils.save_image(
+                    sample,
+                    str(args.out_dir.joinpath(f"{str(i).zfill(6)}.png")),
+                    nrow=int(np.sqrt(args.sample)),
+                    normalize=True,
+                    range=(-1, 1),
+                )
 
 
 if __name__ == "__main__":
@@ -88,9 +128,44 @@ if __name__ == "__main__":
         help='Whether to save W vectors'
     )
 
+    parser.add_argument(
+        "--input_is_latent",
+        action='store_true',
+        help='input is w vector'
+    )
+
+    parser.add_argument(
+        "--latents_input_path",
+        type=Path,
+        help="path to latent codes"
+    )
+
+    parser.add_argument(
+        "--boundary_path",
+        type=Path,
+        help="boundary.npy path file for latent space edit"
+    )
+
+    parser.add_argument(
+        "--max_latent_step",
+        type=int,
+        default=5,
+        help="maximum latent space step"
+    )
+
+    parser.add_argument(
+        "--latent_steps_number",
+        type=int,
+        default=10,
+        help="number of steps for each latent input"
+    )
+
     parser.add_argument("--map_layers", type=int, help="num of mapping layers", default=8)
 
     args = parser.parse_args()
+
+    if args.input_is_latent and (args.latents_input_path is None or args.boundary_path is None):
+        raise("both boudary_path and latents_input_path should be inserted if input is latent")
 
     args.latent = 512
     args.n_mlp = args.map_layers
