@@ -93,7 +93,7 @@ class Blur(nn.Module):
 
 class EqualConv2d(nn.Module):
     def __init__(
-        self, in_channel, out_channel, kernel_size, stride=1, padding=0, bias=True
+            self, in_channel, out_channel, kernel_size, stride=1, padding=0, bias=True
     ):
         super().__init__()
 
@@ -131,7 +131,7 @@ class EqualConv2d(nn.Module):
 
 class EqualLinear(nn.Module):
     def __init__(
-        self, in_dim, out_dim, bias=True, bias_init=0, lr_mul=1, activation=None
+            self, in_dim, out_dim, bias=True, bias_init=0, lr_mul=1, activation=None
     ):
         super().__init__()
 
@@ -168,15 +168,15 @@ class EqualLinear(nn.Module):
 
 class ModulatedConv2d(nn.Module):
     def __init__(
-        self,
-        in_channel,
-        out_channel,
-        kernel_size,
-        style_dim,
-        demodulate=True,
-        upsample=False,
-        downsample=False,
-        blur_kernel=[1, 3, 3, 1],
+            self,
+            in_channel,
+            out_channel,
+            kernel_size,
+            style_dim,
+            demodulate=True,
+            upsample=False,
+            downsample=False,
+            blur_kernel=[1, 3, 3, 1],
     ):
         super().__init__()
 
@@ -294,14 +294,14 @@ class ConstantInput(nn.Module):
 
 class StyledConv(nn.Module):
     def __init__(
-        self,
-        in_channel,
-        out_channel,
-        kernel_size,
-        style_dim,
-        upsample=False,
-        blur_kernel=[1, 3, 3, 1],
-        demodulate=True,
+            self,
+            in_channel,
+            out_channel,
+            kernel_size,
+            style_dim,
+            upsample=False,
+            blur_kernel=[1, 3, 3, 1],
+            demodulate=True,
     ):
         super().__init__()
 
@@ -353,13 +353,13 @@ class ToRGB(nn.Module):
 
 class Generator(nn.Module):
     def __init__(
-        self,
-        size,
-        style_dim,
-        n_mlp,
-        channel_multiplier=2,
-        blur_kernel=[1, 3, 3, 1],
-        lr_mlp=0.01,
+            self,
+            size,
+            style_dim,
+            n_mlp,
+            channel_multiplier=2,
+            blur_kernel=[1, 3, 3, 1],
+            lr_mlp=0.01,
     ):
         super().__init__()
 
@@ -459,16 +459,77 @@ class Generator(nn.Module):
     def get_latent(self, input):
         return self.style(input)
 
+    def get_wp(
+            self,
+            styles,
+            return_latents=False,
+            inject_index=None,
+            truncation=1,
+            truncation_latent=None,
+            input_is_latent=False,
+    ):
+        if not input_is_latent:
+            styles = [self.style(s) for s in styles]
+
+        latent = styles[0].unsqueeze(1).repeat(1, self.n_latent, 1)
+
+        return latent
+
+    def forward_from_wp(
+            self,
+            latent,
+            return_latents=False,
+            inject_index=None,
+            truncation=1,
+            truncation_latent=None,
+            input_is_latent=False,
+            noise=None,
+            randomize_noise=True,
+    ):
+
+        if noise is None:
+            if randomize_noise:
+                noise = [None] * self.num_layers
+            else:
+                noise = [
+                    getattr(self.noises, f"noise_{i}") for i in range(self.num_layers)
+                ]
+
+        latent = truncation_latent + truncation * (latent - truncation_latent.unsqueeze(1))
+
+        out = self.input(latent)
+        out = self.conv1(out, latent[:, 0], noise=noise[0])
+
+        skip = self.to_rgb1(out, latent[:, 1])
+
+        i = 1
+        for conv1, conv2, noise1, noise2, to_rgb in zip(
+                self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
+        ):
+            out = conv1(out, latent[:, i], noise=noise1)
+            out = conv2(out, latent[:, i + 1], noise=noise2)
+            skip = to_rgb(out, latent[:, i + 2], skip)
+
+            i += 2
+
+        image = skip
+
+        if return_latents:
+            return image, latent
+
+        else:
+            return image, None
+
     def forward(
-        self,
-        styles,
-        return_latents=False,
-        inject_index=None,
-        truncation=1,
-        truncation_latent=None,
-        input_is_latent=False,
-        noise=None,
-        randomize_noise=True,
+            self,
+            styles,
+            return_latents=False,
+            inject_index=None,
+            truncation=1,
+            truncation_latent=None,
+            input_is_latent=False,
+            noise=None,
+            randomize_noise=True,
     ):
         if not input_is_latent:
             styles = [self.style(s) for s in styles]
@@ -516,7 +577,7 @@ class Generator(nn.Module):
 
         i = 1
         for conv1, conv2, noise1, noise2, to_rgb in zip(
-            self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
+                self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
         ):
             out = conv1(out, latent[:, i], noise=noise1)
             out = conv2(out, latent[:, i + 1], noise=noise2)
@@ -535,14 +596,14 @@ class Generator(nn.Module):
 
 class ConvLayer(nn.Sequential):
     def __init__(
-        self,
-        in_channel,
-        out_channel,
-        kernel_size,
-        downsample=False,
-        blur_kernel=[1, 3, 3, 1],
-        bias=True,
-        activate=True,
+            self,
+            in_channel,
+            out_channel,
+            kernel_size,
+            downsample=False,
+            blur_kernel=[1, 3, 3, 1],
+            bias=True,
+            activate=True,
     ):
         layers = []
 
@@ -658,4 +719,3 @@ class Discriminator(nn.Module):
         out = self.final_linear(out)
 
         return out
-
