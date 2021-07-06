@@ -495,7 +495,8 @@ class Generator(nn.Module):
                     getattr(self.noises, f"noise_{i}") for i in range(self.num_layers)
                 ]
 
-        latent = truncation_latent + truncation * (latent - truncation_latent.unsqueeze(1))
+        if truncation < 1:
+            latent = truncation_latent + truncation * (latent - truncation_latent.unsqueeze(1))
 
         out = self.input(latent)
         out = self.conv1(out, latent[:, 0], noise=noise[0])
