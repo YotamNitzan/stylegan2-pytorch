@@ -5,7 +5,6 @@ from torchvision import utils
 
 from model import Generator
 
-
 if __name__ == "__main__":
     torch.set_grad_enabled(False)
 
@@ -35,7 +34,7 @@ if __name__ == "__main__":
         "-n", "--n_sample", type=int, default=7, help="number of samples created"
     )
     parser.add_argument(
-        "--truncation", type=float, default=0.7, help="truncation factor"
+        "--truncation", type=float, default=0.5, help="truncation factor"
     )
     parser.add_argument(
         "--device", type=str, default="cuda", help="device to run the model"
@@ -51,8 +50,15 @@ if __name__ == "__main__":
         type=str,
         help="name of the closed form factorization result factor file",
     )
+    parser.add_argument(
+        "--layer",
+        type=int,
+    )
 
     args = parser.parse_args()
+    from pathlib import Path
+
+    Path(args.out_dir).mkdir(exist_ok=True)
 
     eigvec = torch.load(args.factor)["eigvec"].to(args.device)
     ckpt = torch.load(args.ckpt)
@@ -65,29 +71,41 @@ if __name__ == "__main__":
     latent = g.get_latent(latent)
 
     direction = args.degree * eigvec[:, args.index].unsqueeze(0)
+    import numpy as np
 
-    img, _ = g(
-        [latent],
-        truncation=args.truncation,
-        truncation_latent=trunc,
-        input_is_latent=True,
-    )
-    img1, _ = g(
-        [latent + direction],
-        truncation=args.truncation,
-        truncation_latent=trunc,
-        input_is_latent=True,
-    )
-    img2, _ = g(
-        [latent - direction],
-        truncation=args.truncation,
-        truncation_latent=trunc,
-        input_is_latent=True,
-    )
+    alphas = np.linspace(-3, 3, 10)
+    imgs = []
+    for alpha in alphas:
+        if args.layer:
+            wp_latent = g.get_wp([latent],
+                                 truncation=args.truncation,
+                                 truncation_latent=trunc,
+                                 input_is_latent=True)
+            wp_latent[:, args.layer] += alpha * direction
+
+            img, _ = g.forward_from_wp(wp_latent, truncation_latent=trunc, truncation=args.truncation)
+        else:
+            img, _ = g(
+                [latent + alpha * direction],
+                truncation=args.truncation,
+                truncation_latent=trunc,
+                input_is_latent=True,
+            )
+        imgs.append(img)
+
+    if args.layer:
+        dst_path = f"{args.out_dir}/index-{args.index}_degree-{args.degree}_layer_{args.layer}.jpg"
+    else:
+        dst_path = f"{args.out_dir}/index-{args.index}_degree-{args.degree}.jpg"
+
+    for i, batch in enumerate(imgs):
+        for sample_idx, img in enumerate(batch):
+            dst_path = f"{args.out_dir}/index-{args.index}_degree-{args.degree}_sample-{sample_idx:03}_index-{i}.jpg"
+            utils.save_image(img, dst_path, normalize=True, range=(-1,1), nrow=1)
 
     grid = utils.save_image(
-        torch.cat([img1, img, img2], 0),
-        f"{args.out_dir}/index-{args.index}_degree-{args.degree}.png",
+        torch.cat(imgs, 0),
+        dst_path,
         normalize=True,
         range=(-1, 1),
         nrow=args.n_sample,
